@@ -232,8 +232,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         mu = np.mean(x, axis=0)
-        var = np.var(x, axis=0)
-        std = np.sqrt(var + eps)
+        var = np.var(x, axis=0) + eps
+        std = np.sqrt(var)
         z = (x - mu) / std
         out = gamma * z + beta
 
@@ -241,6 +241,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         running_mean = momentum * running_mean + (1 - momentum) * mu
         running_var = momentum * running_var + (1 - momentum) * var
 
+        cache = (x, gamma, mu, var, z)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -296,7 +297,16 @@ def batchnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, gamma, mu, var, x_norm = cache
+    N = x.shape[0]
+
+    dgamma = np.sum(dout * x_norm, axis=0)
+    dbeta = np.sum(dout, axis=0)
+
+    dx_norm = dout * gamma
+    dvar = np.sum(dx_norm * (x - mu) * -0.5 * var**(-1.5), axis=0)
+    dmu = np.sum(dx_norm * -1 / np.sqrt(var), axis=0) + dvar * np.sum(-2 * (x - mu), axis=0) / N
+    dx = dx_norm / np.sqrt(var) + dvar * 2 * (x - mu) / N + dmu / N
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -330,7 +340,16 @@ def batchnorm_backward_alt(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, gamma, mu, var, x_norm = cache
+    N = x.shape[0]
+    
+    dgamma = np.sum(dout * x_norm, axis=0)
+    dbeta = np.sum(dout, axis=0)
+
+    dx_norm = dout * gamma
+    dx_norm_sum = np.sum(dx_norm, axis=0)
+    dx = dx_norm - dx_norm_sum / N - np.sum(dx_norm * x_norm, axis=0) * x_norm / N
+    dx /= np.sqrt(var)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

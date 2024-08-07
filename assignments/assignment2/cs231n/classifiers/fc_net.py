@@ -159,10 +159,18 @@ class FullyConnectedNet(object):
 
         x = X
         caches = []
+        gamma, beta, bn_param = None, None, None
         for i in range(self.num_layers - 1):
             w = self.params['W' + str(i + 1)]
             b = self.params['b' + str(i + 1)]
-            x, cache = affine_relu_forward(x, w, b)
+
+            if self.normalization == 'batchnorm':
+                gamma = self.params['gamma' + str(i + 1)]
+                beta = self.params['beta' + str(i + 1)]
+                bn_param = self.bn_params[i]
+
+            # x, cache = affine_relu_forward(x, w, b)
+            x, cache = affine_norm_relu_forward(x, w, b, gamma, beta, bn_param, self.normalization)
 
             caches.append(cache)
         
@@ -209,10 +217,13 @@ class FullyConnectedNet(object):
         grads['b' + str(self.num_layers)] = db
 
         for i in range(self.num_layers - 1, 0, -1):
-            dout, dw, db = affine_relu_backward(dout, caches[i - 1])
+            dout, dw, db, dgamma, dbeta = affine_norm_relu_backward(dout, caches[i - 1], self.normalization)
 
             grads['W' + str(i)] = dw + self.reg * self.params['W' + str(i)]
             grads['b' + str(i)] = db
+            if self.normalization != None:
+                grads['gamma' + str(i)] = dgamma
+                grads['beta' + str(i)] = dbeta
 
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
