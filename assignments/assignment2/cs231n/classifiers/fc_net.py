@@ -164,7 +164,7 @@ class FullyConnectedNet(object):
             w = self.params['W' + str(i + 1)]
             b = self.params['b' + str(i + 1)]
 
-            if self.normalization == 'batchnorm':
+            if self.normalization != None:
                 gamma = self.params['gamma' + str(i + 1)]
                 beta = self.params['beta' + str(i + 1)]
                 bn_param = self.bn_params[i]

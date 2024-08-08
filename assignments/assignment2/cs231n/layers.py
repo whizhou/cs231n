@@ -201,6 +201,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     mode = bn_param["mode"]
     eps = bn_param.get("eps", 1e-5)
     momentum = bn_param.get("momentum", 0.9)
+    layernorm = bn_param.get("layernorm", 0)
 
     N, D = x.shape
     running_mean = bn_param.get("running_mean", np.zeros(D, dtype=x.dtype))
@@ -238,10 +239,11 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         out = gamma * z + beta
 
         # Update running mean and variance
-        running_mean = momentum * running_mean + (1 - momentum) * mu
-        running_var = momentum * running_var + (1 - momentum) * var
+        if layernorm == 0:
+            running_mean = momentum * running_mean + (1 - momentum) * mu
+            running_var = momentum * running_var + (1 - momentum) * var
 
-        cache = (x, gamma, mu, var, z)
+        cache = (x, gamma, mu, var, z, layernorm)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -297,11 +299,11 @@ def batchnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    x, gamma, mu, var, x_norm = cache
+    x, gamma, mu, var, x_norm, axis = cache
     N = x.shape[0]
 
-    dgamma = np.sum(dout * x_norm, axis=0)
-    dbeta = np.sum(dout, axis=0)
+    dgamma = np.sum(dout * x_norm, axis=axis)
+    dbeta = np.sum(dout, axis=axis)
 
     dx_norm = dout * gamma
     dvar = np.sum(dx_norm * (x - mu) * -0.5 * var**(-1.5), axis=0)
@@ -340,11 +342,11 @@ def batchnorm_backward_alt(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    x, gamma, mu, var, x_norm = cache
+    x, gamma, mu, var, x_norm, axis = cache
     N = x.shape[0]
     
-    dgamma = np.sum(dout * x_norm, axis=0)
-    dbeta = np.sum(dout, axis=0)
+    dgamma = np.sum(dout * x_norm, axis=axis)
+    dbeta = np.sum(dout, axis=axis)
 
     dx_norm = dout * gamma
     dx_norm_sum = np.sum(dx_norm, axis=0)
@@ -394,7 +396,10 @@ def layernorm_forward(x, gamma, beta, ln_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    ln_param['mode'] = 'train'
+    ln_param['layernorm'] = 1
+    out, cache = batchnorm_forward(x.T, gamma.reshape(-1, 1), beta.reshape(-1, 1), ln_param)
+    out = out.T
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -428,7 +433,8 @@ def layernorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    dx, dgamma, dbeta = batchnorm_backward_alt(dout.T, cache)
+    dx = dx.T
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

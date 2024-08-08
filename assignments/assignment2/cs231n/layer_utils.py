@@ -46,6 +46,8 @@ def affine_norm_relu_forward(x, w, b, gamma, beta, bn_param, normalization):
     norm_cache = None
     if normalization == "batchnorm":
         x, norm_cache = batchnorm_forward(x, gamma, beta, bn_param)
+    elif normalization == "layernorm":
+        x, norm_cache = layernorm_forward(x, gamma, beta, bn_param)
     out, relu_cache = relu_forward(x)
     cache = (fc_cache, norm_cache, relu_cache)
     return out, cache
@@ -57,7 +59,9 @@ def affine_norm_relu_backward(dout, cache, normalization):
     dout = relu_backward(dout, relu_cache)
     dgamma, dbeta = None, None
     if normalization == "batchnorm":
-        da, dgamma, dbeta = batchnorm_backward_alt(dout, norm_cache)
+        dout, dgamma, dbeta = batchnorm_backward_alt(dout, norm_cache)
+    elif normalization == "layernorm":
+        dout, dgamma, dbeta = layernorm_backward(dout, norm_cache)
     dx, dw, db = affine_backward(dout, fc_cache)
     return dx, dw, db, dgamma, dbeta
 
