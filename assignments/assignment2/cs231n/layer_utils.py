@@ -28,7 +28,7 @@ def affine_relu_backward(dout, cache):
 
 # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-def affine_norm_relu_forward(x, w, b, gamma, beta, bn_param, normalization):
+def affine_norm_relu_forward(x, w, b, gamma, beta, bn_param, normalization, dropout, dropout_param):
     """Convenience forward layer that performs affine-norm-relu or affine-relu
 
     Inputs:
@@ -42,22 +42,25 @@ def affine_norm_relu_forward(x, w, b, gamma, beta, bn_param, normalization):
     - out: Output from the ReLU
     - cache: Object to give to the backward pass
     """
+    norm_cache, dropout_cache = None, None
     x, fc_cache = affine_forward(x, w, b)
-    norm_cache = None
     if normalization == "batchnorm":
         x, norm_cache = batchnorm_forward(x, gamma, beta, bn_param)
     elif normalization == "layernorm":
         x, norm_cache = layernorm_forward(x, gamma, beta, bn_param)
     out, relu_cache = relu_forward(x)
-    cache = (fc_cache, norm_cache, relu_cache)
-    return out, cache
+    if dropout:
+        out, dropout_cache = dropout_forward(out, dropout_param)
+    return out, (fc_cache, norm_cache, relu_cache, dropout_cache)
 
-def affine_norm_relu_backward(dout, cache, normalization):
+def affine_norm_relu_backward(dout, cache, normalization, dropout):
     """Backward pass for affine-norm-relu convenience layer
     """
-    fc_cache, norm_cache, relu_cache = cache
-    dout = relu_backward(dout, relu_cache)
     dgamma, dbeta = None, None
+    fc_cache, norm_cache, relu_cache, dropout_cache = cache
+    if dropout:
+        dout = dropout_backward(dout, dropout_cache)
+    dout = relu_backward(dout, relu_cache)
     if normalization == "batchnorm":
         dout, dgamma, dbeta = batchnorm_backward_alt(dout, norm_cache)
     elif normalization == "layernorm":

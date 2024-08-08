@@ -170,7 +170,8 @@ class FullyConnectedNet(object):
                 bn_param = self.bn_params[i]
 
             # x, cache = affine_relu_forward(x, w, b)
-            x, cache = affine_norm_relu_forward(x, w, b, gamma, beta, bn_param, self.normalization)
+            x, cache = affine_norm_relu_forward(x, w, b, gamma, beta, bn_param, self.normalization,
+                                                self.use_dropout, self.dropout_param)
 
             caches.append(cache)
         
@@ -217,7 +218,9 @@ class FullyConnectedNet(object):
         grads['b' + str(self.num_layers)] = db
 
         for i in range(self.num_layers - 1, 0, -1):
-            dout, dw, db, dgamma, dbeta = affine_norm_relu_backward(dout, caches[i - 1], self.normalization)
+            dout, dw, db, dgamma, dbeta = affine_norm_relu_backward(dout, caches[i - 1],
+                                                                    self.normalization,
+                                                                    self.use_dropout)
 
             grads['W' + str(i)] = dw + self.reg * self.params['W' + str(i)]
             grads['b' + str(i)] = db
