@@ -869,16 +869,17 @@ def spatial_groupnorm_forward(x, gamma, beta, G, gn_param):
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     N, C, H, W = x.shape
+    size = (N * G, C // G * H * W)
     
-    x = x.reshape(N * G, C // G * H * W)
+    x = x.reshape(size).T
 
-    mu = np.mean(x, axis=1, keepdims=True)
-    var = np.var(x, axis=1, keepdims=True) + eps
+    mu = np.mean(x, axis=0)
+    var = np.var(x, axis=0) + eps
     std = np.sqrt(var)
     x_norm = (x - mu) / std
-    x_norm = x_norm.reshape(N, C, H, W)
+    x_norm = x_norm.T.reshape(N, C, H, W)
     out = gamma * x_norm + beta
-    cache = (gamma, var, x_norm)
+    cache = (gamma, var, x_norm, size)
 
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -920,7 +921,7 @@ def spatial_groupnorm_backward(dout, cache):
         dx = dx_norm - dx_norm_sum / N - np.sum(dx_norm * x_norm, axis=0) * x_norm / N
         dx /= np.sqrt(var)
     """
-    gamma, var, x_norm = cache
+    gamma, var, x_norm, size = cache
     N, C, H, W = dout.shape
     sum_axis = (0, 2, 3)
     
@@ -928,11 +929,17 @@ def spatial_groupnorm_backward(dout, cache):
     dgamma = np.sum(dout * x_norm, axis=sum_axis, keepdims=True)
     dbeta = np.sum(dout, axis=sum_axis, keepdims=True)
 
+    # reshape tensors
+    x_norm = x_norm.reshape(size).T
+    M = x_norm.shape[0]
     dx_norm = dout * gamma
-    dx_norm_sum = np.sum(dx_norm, axis=sum_axis, keepdims=True)
-    dx = dx_norm - dx_norm_sum / N / H / W - np.sum(dx_norm * x_norm, axis=sum_axis, keepdims=True) * x_norm / N / H / W
-    dx /= np.sqrt(var)
+    dx_norm = dx_norm.reshape(size).T
 
+    # copy fron batchnorm_backward_alt
+    dx_norm_sum = np.sum(dx_norm, axis=0)
+    dx = dx_norm - dx_norm_sum / M - np.sum(dx_norm * x_norm, axis=0) * x_norm / M
+    dx /= np.sqrt(var)
+    dx = dx.T.reshape(N, C, H, W)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
