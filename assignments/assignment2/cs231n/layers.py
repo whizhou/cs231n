@@ -567,7 +567,31 @@ def conv_forward_naive(x, w, b, conv_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    stride = conv_param['stride']
+    pad = conv_param['pad']
+    N, C, H, W = x.shape
+    F, C, HH, WW = w.shape
+
+    assert (H - HH + 2 * pad) % stride == 0
+    assert (W - WW + 2 * pad) % stride == 0
+    H_ = 1 + (H - HH + 2 * pad) // stride
+    W_ = 1 + (W - WW + 2 * pad) // stride
+
+    out = np.zeros((N, F, H_, W_))
+
+    x_pad = np.pad(x, ((0, 0), (0, 0), (pad, pad), (pad, pad)), 'constant')
+    H_pad, W_pad = x_pad.shape[2], x_pad.shape[3]
+
+    w_row = w.reshape(F, C * HH * WW)
+
+    x_col = np.zeros((C * HH * WW, H_ * W_))
+    for idx in range(N):
+        neuron = 0
+        for i in range(0, H_pad - HH + 1, stride):
+            for j in range(0, W_pad - WW + 1, stride):
+                x_col[:, neuron] = x_pad[idx, :, i:i + HH, j:j + WW].reshape(C * HH * WW)
+                neuron += 1
+        out[idx] = (np.matmul(w_row, x_col) + b.reshape(F, 1)).reshape(F, H_, W_)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -595,7 +619,37 @@ def conv_backward_naive(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, w, b, conv_param = cache
+    stride = conv_param['stride']
+    pad = conv_param['pad']
+    N, C, H, W = x.shape
+    F, C, HH, WW = w.shape
+
+    H_ = 1 + (H - HH + 2 * pad) // stride
+    W_ = 1 + (W - WW + 2 * pad) // stride
+
+    x_pad = np.pad(x, ((0, 0), (0, 0), (pad, pad), (pad, pad)), 'constant')
+    H_pad, W_pad = x_pad.shape[2], x_pad.shape[3]
+
+    dx, dw, db = np.zeros_like(x_pad), np.zeros_like(w), np.zeros_like(b)
+
+    w_row = w.reshape(F, C * HH * WW)
+    x_col = np.zeros((C * HH * WW, H_ * W_))
+    
+    for idx in range(N):
+        dout_col = dout[idx].reshape(F, H_ * W_)
+        w_out = np.matmul(w_row.T, dout_col)  #[C*HH*WW x H_*W_]
+        neuron = 0
+        for i in range(0, H_pad - HH + 1, stride):
+            for j in range(0, W_pad - WW + 1, stride):
+                dx[idx, :, i:i + HH, j:j + WW] += w_out[:, neuron].reshape((C, HH, WW))
+                x_col[:, neuron] = x_pad[idx, :, i:i + HH, j:j + WW].reshape(C * HH * WW)
+                neuron += 1
+        dw += np.matmul(dout_col, x_col.T).reshape(F, C, HH, WW)
+        db += np.sum(dout_col, axis=1)
+    
+    dx = dx[:, :, pad:-pad, pad:-pad]
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -630,7 +684,25 @@ def max_pool_forward_naive(x, pool_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, C, H, W = x.shape
+    PH = pool_param['pool_height']
+    PW = pool_param['pool_width']
+    stride = pool_param['stride']
+
+    H_ = 1 + (H - PH) // stride
+    W_ = 1 + (W - PW) // stride
+
+    out = np.zeros((N, C, H_, W_))
+    for idx in range(N):
+        out_col = np.zeros((C, H_ * W_))
+        neuron = 0
+        for i in range(0, H - PH + 1, stride):
+            for j in range(0, W - PW + 1, stride):
+                pool_region = x[idx, :, i:i + PH, j:j + PW].reshape(C, PH * PW)
+                out_col[:, neuron] = np.max(pool_region, axis=1)
+                neuron += 1
+        out[idx] = out_col.reshape(C, H_, W_)
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -656,7 +728,26 @@ def max_pool_backward_naive(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, pool_param = cache
+    N, C, H, W = x.shape
+    N, C, H_, W_ = dout.shape
+    PH = pool_param['pool_height']
+    PW = pool_param['pool_width']
+    stride = pool_param['stride']
+
+    dx = np.zeros_like(x)
+    for idx in range(N):
+        dout_row = dout[idx].reshape(C, H_ * W_)
+        neuron = 0
+        for i in range(0, H - PH + 1, stride):
+            for j in range(0, W - PW + 1, stride):
+                pool_region = x[idx, :, i:i + PH, j:j + PW].reshape(C, PH * PW)
+                max_pool_indicies = np.argmax(pool_region, axis=1)
+                dmax_pool = np.zeros((C, PH * PW))
+                dmax_pool[np.arange(C), max_pool_indicies] = dout_row[:, neuron]
+                dx[idx, :, i:i + PH, j:j + PW] = dmax_pool.reshape(C, PH, PW)
+                neuron += 1
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -697,7 +788,10 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, C, H, W = x.shape
+    x = x.transpose(0, 2, 3, 1).reshape(N * H * W, C)
+    out, cache = batchnorm_forward(x, gamma, beta, bn_param)
+    out = out.reshape(N, H, W, C).transpose(0, 3, 1, 2)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -730,7 +824,10 @@ def spatial_batchnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, C, H, W = dout.shape
+    dout = dout.transpose(0, 2, 3, 1).reshape(N * H * W, C)
+    dx, dgamma, dbeta = batchnorm_backward_alt(dout, cache)
+    dx = dx.reshape(N, H, W, C).transpose(0, 3, 1, 2)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -771,7 +868,18 @@ def spatial_groupnorm_forward(x, gamma, beta, G, gn_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, C, H, W = x.shape
+    
+    x = x.reshape(N * G, C // G * H * W)
+
+    mu = np.mean(x, axis=1, keepdims=True)
+    var = np.var(x, axis=1, keepdims=True) + eps
+    std = np.sqrt(var)
+    x_norm = (x - mu) / std
+    x_norm = x_norm.reshape(N, C, H, W)
+    out = gamma * x_norm + beta
+    cache = (gamma, var, x_norm)
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -800,7 +908,31 @@ def spatial_groupnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    """batchnorm backward alt
+        x, gamma, mu, var, x_norm, axis = cache
+        N = x.shape[0]
+        
+        dgamma = np.sum(dout * x_norm, axis=axis)
+        dbeta = np.sum(dout, axis=axis)
+
+        dx_norm = dout * gamma
+        dx_norm_sum = np.sum(dx_norm, axis=0)
+        dx = dx_norm - dx_norm_sum / N - np.sum(dx_norm * x_norm, axis=0) * x_norm / N
+        dx /= np.sqrt(var)
+    """
+    gamma, var, x_norm = cache
+    N, C, H, W = dout.shape
+    sum_axis = (0, 2, 3)
+    
+
+    dgamma = np.sum(dout * x_norm, axis=sum_axis, keepdims=True)
+    dbeta = np.sum(dout, axis=sum_axis, keepdims=True)
+
+    dx_norm = dout * gamma
+    dx_norm_sum = np.sum(dx_norm, axis=sum_axis, keepdims=True)
+    dx = dx_norm - dx_norm_sum / N / H / W - np.sum(dx_norm * x_norm, axis=sum_axis, keepdims=True) * x_norm / N / H / W
+    dx /= np.sqrt(var)
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
