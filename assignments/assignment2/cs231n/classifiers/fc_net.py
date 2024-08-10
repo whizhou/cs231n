@@ -218,9 +218,11 @@ class FullyConnectedNet(object):
         grads['b' + str(self.num_layers)] = db
 
         for i in range(self.num_layers - 1, 0, -1):
-            dout, dw, db, dgamma, dbeta = affine_norm_relu_backward(dout, caches[i - 1],
-                                                                    self.normalization,
-                                                                    self.use_dropout)
+            dout, dw, db, dgamma, dbeta = affine_norm_relu_backward(
+                dout, caches[i - 1],
+                self.normalization,
+                self.use_dropout
+            )
 
             grads['W' + str(i)] = dw + self.reg * self.params['W' + str(i)]
             grads['b' + str(i)] = db

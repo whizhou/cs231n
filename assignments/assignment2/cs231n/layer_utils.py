@@ -29,7 +29,7 @@ def affine_relu_backward(dout, cache):
 # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
 def affine_norm_relu_forward(x, w, b, gamma, beta, bn_param, normalization, dropout, dropout_param):
-    """Convenience forward layer that performs affine-norm-relu or affine-relu
+    """Convenience forward layer that performs affine-norm-relu-dropout
 
     Inputs:
     - x: Input to the affine layer
@@ -37,6 +37,8 @@ def affine_norm_relu_forward(x, w, b, gamma, beta, bn_param, normalization, drop
     - gamma, beta: Params of batchnorm
     - bn_param: Dictionary params of bn
     - normalization: Type of normalization
+    - dropout: Whether use of dropout
+    - dropout_param: Dictionary params of dropout
 
     Returns a tuple of:
     - out: Output from the ReLU
